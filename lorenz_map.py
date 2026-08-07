@@ -76,7 +76,7 @@ def plot_model_retrun_map(MODEL_NAME: str,
                 model_info = json.load(f)
                 activation = model_info['ACTIVATION']
                 hidden_size = model_info['HIDDEN_SIZE']
-                beta = model_info['BETA']
+                beta = 1
 
     model = tanh_model(hidden_size, activation, beta)
     model.load_state_dict(torch.load(Path(r".\output", MODEL_NAME, MODEL_NAME + "_best_epoch.pth")))
@@ -130,4 +130,4 @@ def plot_model_retrun_map(MODEL_NAME: str,
 
 
 if __name__ == '__main__':
-      plot_model_retrun_map(MODEL_NAME = 'hmmmm_1', x0 = np.array([1,1,0]), n_steps=10000)
+      plot_model_retrun_map(MODEL_NAME = 'softplus_model', x0 = np.array([1,1,0]), n_steps=10000)

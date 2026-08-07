@@ -8,15 +8,14 @@ def train_epoch(model,
                 dataloader,
                 loss_fn,
                 optimiser,
-                acc_fn,
-                std,
+                err_fn,
                 device):
     
     model = model.to(device)
 
     model.train()
 
-    epoch_acc = 0
+    epoch_err = 0
     epoch_loss = 0
     epoch_preds = []
 
@@ -32,9 +31,7 @@ def train_epoch(model,
 
             preds = model(inputs)
     
-            err = preds - targets
-            MSE = torch.mean(err**2, dim=0)*std.squeeze()**2
-            loss = torch.mean(MSE)
+            loss = loss_fn(preds, targets)
             loss.backward()
             return loss
 
@@ -45,26 +42,25 @@ def train_epoch(model,
         epoch_preds.append(model(inputs))
 
     epoch_preds = torch.cat(epoch_preds, dim=0)
-    acc = acc_fn(epoch_preds, targets)
-    epoch_acc += acc.item()
+    err = err_fn(epoch_preds, targets)
+    epoch_err += err.item()
 
     epoch_loss /= n_batches
-    epoch_acc /= n_batches
+    epoch_err /= n_batches
 
-    return epoch_loss, epoch_acc
+    return epoch_loss, epoch_err
 
 def val_epoch(model,
                 dataloader,
                 loss_fn,
-                acc_fn,
-                std,
+                err_fn,
                 device):
     
     model = model.to(device)
 
     model.eval()
 
-    epoch_acc = 0
+    epoch_err = 0
     epoch_loss = 0
     epoch_preds = []
 
@@ -79,9 +75,7 @@ def val_epoch(model,
 
                 preds = model(inputs)
         
-                err = preds - targets
-                MSE = torch.mean(err**2, dim=0)*std.squeeze()**2
-                loss = torch.mean(MSE)
+                loss = loss_fn(preds, targets)
                 return loss
            
             loss = closure()
@@ -91,13 +85,13 @@ def val_epoch(model,
             epoch_preds.append(model(inputs))
            
         epoch_preds = torch.cat(epoch_preds, dim=0)
-        acc = acc_fn(epoch_preds, targets)
-        epoch_acc += acc.item()
+        err = err_fn(epoch_preds, targets)
+        epoch_err += err.item()
            
         epoch_loss /= n_batches
-        epoch_acc /= n_batches
+        epoch_err /= n_batches
            
-        return epoch_loss, epoch_acc
+        return epoch_loss, epoch_err
 
 
 def train(model,
@@ -105,44 +99,41 @@ def train(model,
           val_loader,
           loss_fn,
           optimiser,
-          acc_fn,
+          err_fn,
           NUM_EPOCHS,
-          std,
           device):
     
     results = {
         'train_loss': [],
-        'train_acc': [],
+        'train_err': [],
         'val_loss': [],
-        'val_acc': [],
+        'val_err': [],
         'model_statedict': [],
     }
     pbar = tqdm(range(1, NUM_EPOCHS+1), desc="Training", colour="green")
     for epoch in pbar:
         pbar.set_description(f"Training Epoch: {epoch}/{NUM_EPOCHS}")
-        train_loss, train_acc = train_epoch(model = model,
+        train_loss, train_err = train_epoch(model = model,
                                             dataloader = train_loader,
                                             loss_fn = loss_fn,
                                             optimiser = optimiser,
-                                            acc_fn = acc_fn,
-                                            std = std,
+                                            err_fn = err_fn,
                                             device = device)
         pbar.set_description(f"Validating Epoch: {epoch}/{NUM_EPOCHS}")
-        val_loss, val_acc = val_epoch(model = model,
+        val_loss, val_err = val_epoch(model = model,
                                       dataloader = val_loader,
                                       loss_fn = loss_fn,
-                                      acc_fn = acc_fn,
-                                      std = std,
+                                      err_fn = err_fn,
                                       device = device)
         
         results['train_loss'].append(train_loss)
-        results['train_acc'].append(train_acc)
+        results['train_err'].append(train_err)
         results['val_loss'].append(val_loss)
-        results['val_acc'].append(val_acc)
+        results['val_err'].append(val_err)
         results['model_statedict'].append(deepcopy(model.state_dict()))
 
         if epoch % 10 == 0:
-            print(f'| Epoch {epoch} |\n| Train Loss : {train_loss} | Train Average Euclidean Distance: {train_acc} |\n| Val Loss : {val_loss} | Val Average Euclidean Distance: {val_acc} |')
+            print(f'| Epoch {epoch} |\n| Train Loss : {train_loss} | Train Average Euclidean Distance: {train_err} |\n| Val Loss : {val_loss} | Val Average Euclidean Distance: {val_err} |')
 
     return results    
     
@@ -150,7 +141,7 @@ def train(model,
 def test(model,
          dataloader,
          loss_fn,
-         acc_fn,
+         err_fn,
          std,
          device):
     
@@ -159,7 +150,7 @@ def test(model,
     model.eval()
     epoch_preds = []
 
-    epoch_acc = 0.0
+    epoch_err = 0.0
     epoch_loss = 0.0
     n_batches = len(dataloader)
     with torch.inference_mode():
@@ -172,9 +163,7 @@ def test(model,
             
                 preds = model(inputs)
                     
-                err = preds - targets
-                MSE = torch.mean(err**2, dim=0)*std.squeeze()**2
-                loss = torch.mean(MSE)
+                loss = loss_fn(preds, targets)
                 return loss
                        
             loss = closure()
@@ -184,13 +173,13 @@ def test(model,
             epoch_preds.append(model(inputs))
            
         epoch_preds = torch.cat(epoch_preds, dim=0)
-        acc = acc_fn(epoch_preds, targets)
-        epoch_acc += acc.item()
+        err = err_fn(epoch_preds, targets)
+        epoch_err += err.item()
            
         epoch_loss /= n_batches
-        epoch_acc /= n_batches
+        epoch_err /= n_batches
            
-        return epoch_loss, epoch_acc
+        return epoch_loss, epoch_err
 
 
 

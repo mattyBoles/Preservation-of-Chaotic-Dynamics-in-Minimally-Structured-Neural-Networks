@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from data import traj_Dataset
-from models import tanh_model, avg_euclidean_error, parameterised_beta_model
+from models import tanh_model, avg_euclidean_error, parameterised_beta_model, WeightedMSELoss
 from engine import train, test
 from plot import plot_model, plot_loss
 from model_analysis import analysis
@@ -52,7 +52,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     #MODEL_NAME = str(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")) + '_6_width_model'
     MODEL_NAME = config['MODEL_NAME']
 
-    output_dir = f'./output/{MODEL_NAME}/'
+    output_dir = f'./mega_experiment/'
     os.makedirs(output_dir, exist_ok=True)
 
     n_trajectories = config['n_traj']
@@ -103,7 +103,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
 
     model = tanh_model(config['hidden_size'], config['activation'], RANDOM_SEED=RANDOM_SEED, beta=config['beta']).to(device)
 
-    loss_fn = torch.nn.MSELoss()
+    loss_fn = WeightedMSELoss(std=std)
     optimiser = torch.optim.LBFGS(
         model.parameters(),
         lr=lr,
@@ -114,7 +114,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         line_search_fn="strong_wolfe"
     )
 
-    acc_fn = avg_euclidean_error(mean = mean,
+    err_fn = avg_euclidean_error(mean = mean,
                                 std = std)
 
     train_results = train(model = model,
@@ -122,35 +122,34 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
                         val_loader = val_loader,
                         loss_fn = loss_fn,
                         optimiser = optimiser,
-                        acc_fn = acc_fn,
+                        err_fn = err_fn,
                         NUM_EPOCHS = NUM_EPOCHS,
-                        std = std,
                         device = device)
     
 
-    torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_last_epoch.pth')
+    #torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_last_epoch.pth')
 
     best_val_loss = train_results['val_loss'].index(min(train_results['val_loss']))
     model.load_state_dict(train_results['model_statedict'][best_val_loss])
     torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_best_epoch.pth')
 
 
-    trn_loss, trn_acc = test(model = model,
+    trn_loss, trn_avg_err = test(model = model,
                             dataloader = train_loader,
                             loss_fn = loss_fn,
-                            acc_fn = acc_fn,
+                            err_fn = err_fn,
                             std=std,
                             device = device)
-    val_loss, val_acc = test(model = model,
+    val_loss, val_avg_err = test(model = model,
                             dataloader = val_loader,
                             loss_fn = loss_fn,
-                            acc_fn = acc_fn,
+                            err_fn = err_fn,
                             std=std,
                             device = device)
-    test_loss, test_acc = test(model = model,
+    test_loss, test_avg_err = test(model = model,
                                 dataloader = test_loader,
                                 loss_fn = loss_fn,
-                                acc_fn = acc_fn,
+                                err_fn = err_fn,
                                 std=std,
                                 device = device)
     
@@ -158,9 +157,9 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
 
     print('\n\n')
     print('-----RESULTS-----')
-    print(f'| Train MSE : {trn_loss:.5f} | Train Average Euclidean Distance: {trn_acc:.5f} |\n')
-    print(f'| Val MSE : {val_loss:.5f} | Val Average Euclidean Distance: {val_acc:.5f} |\n')
-    print(f'| Test MSE : {test_loss:.5f} | Test Average Euclidean Distance: {test_acc:.5f} |\n')
+    print(f'| Train MSE : {trn_loss:.5f} | Train Average Euclidean Distance: {trn_avg_err:.5f} |\n')
+    print(f'| Val MSE : {val_loss:.5f} | Val Average Euclidean Distance: {val_avg_err:.5f} |\n')
+    print(f'| Test MSE : {test_loss:.5f} | Test Average Euclidean Distance: {test_avg_err:.5f} |\n')
 
 
     torch.save(
@@ -168,7 +167,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         f'{output_dir}/{MODEL_NAME}_stats.pt'
     )
 
-    def to_py_float(x, dp: int = 4) -> float:
+    def to_py_float(x, dp: int = 7) -> float:
         '''
         Converts a torch.Tensor / np.generic / plain number to a native
         Python float, rounded to `dp` decimal places, for JSON serialization.
@@ -187,48 +186,48 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         "HIDDEN_SIZE": config['hidden_size'],
         'BETA': config['beta'],
         "TRAIN_LOSS": to_py_float(trn_loss),
-        "TRAIN_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(trn_acc),
+        "TRAIN_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(trn_avg_err),
         "VAL_LOSS" : to_py_float(val_loss),
-        "VAL_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(val_acc),
+        "VAL_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(val_avg_err),
         "TEST_LOSS" : to_py_float(test_loss),
-        "TEST_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(test_acc)}
+        "TEST_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(test_avg_err)}
 
-    with open(output_dir + f"{MODEL_NAME}_train.json", "w") as f:
-        json.dump(output_dict, f, indent=2, default=str)
+    # with open(output_dir + f"{MODEL_NAME}_train.json", "w") as f:
+    #     json.dump(output_dict, f, indent=2, default=str)
     
 
     # ly1, ly2, ly3 = [],[],[]
     # for _ in range(20):
-    l1, l2, l3, _ = analysis(MODEL_NAME=MODEL_NAME)
-    #     ly1.append(l1)
-    #     ly2.append(l2)
-    #     ly3.append(l3)
+    # l1, l2, l3, _ = analysis(MODEL_NAME=MODEL_NAME)
+    # #     ly1.append(l1)
+    # #     ly2.append(l2)
+    # #     ly3.append(l3)
     
-    # l1 = np.mean(np.asarray(ly1))
-    # l2 = np.mean(np.asarray(ly2))
-    # l3 = np.mean(np.asarray(ly3))
+    # # l1 = np.mean(np.asarray(ly1))
+    # # l2 = np.mean(np.asarray(ly2))
+    # # l3 = np.mean(np.asarray(ly3))
 
 
-    output_dict.update({
-            "Lyapunov1": l1,
-            "Lyapunov2": l2,
-            "Lyapunov3": l3,
-        })
+    # output_dict.update({
+    #         "Lyapunov1": l1,
+    #         "Lyapunov2": l2,
+    #         "Lyapunov3": l3,
+    #     })
 
-    with open(output_dir + f"{MODEL_NAME}_train.json", "w") as f:
-            json.dump(output_dict, f, indent=2, default=str)
+    #with open(output_dir + f"{MODEL_NAME}_train.json", "w") as f:
+            #json.dump(output_dict, f, indent=2, default=str)
 
 
-    plot_model(model = model,
-            x0 = np.array([1,1,25]),
-            n_steps = 10000,
-            mean = mean,
-            std = std,
-            output_dir=output_dir,
-            MODEL_NAME=MODEL_NAME)
+    #plot_model(model = model,
+            #x0 = np.array([1,1,25]),
+            #n_steps = 10000,
+            #mean = mean,
+            #std = std,
+            #output_dir=output_dir,
+            #MODEL_NAME=MODEL_NAME)
 
-    plot_loss(trn_results = train_results,
-              output_dir=output_dir)
+    #plot_loss(trn_results = train_results,
+              #output_dir=output_dir)
     
 
     return output_dict
@@ -243,8 +242,8 @@ if __name__ == '__main__':
         'hidden_size': 4,
         'n_traj': 100,
         'traj_length': 5,
-        'activation': 'softplus',
+        'activation': 'gelu',
         'beta': 1,
-        'random_seed': 177}
+        'random_seed': random.randint(1,100)}
 
     output = train_model(config=config)

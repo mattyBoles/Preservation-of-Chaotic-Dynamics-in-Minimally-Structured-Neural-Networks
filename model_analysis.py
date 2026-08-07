@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import os
+import pandas as pd
 
 from models import tanh_model, parameterised_beta_model
 from lorenz import LorenzGenerator
@@ -34,7 +35,7 @@ def analysis(MODEL_NAME: str,
             model_info = json.load(f)
             activation = model_info['ACTIVATION']
             hidden_size = model_info['HIDDEN_SIZE']
-            beta = model_info['BETA']
+            beta = 1
 
     model = tanh_model(hidden_units=hidden_size, activation=activation, beta=beta).to(device)
     model.load_state_dict(torch.load(Path(root_folder,MODEL_NAME+"_best_epoch.pth")))
@@ -66,7 +67,7 @@ def analysis(MODEL_NAME: str,
     Q = np.eye(3)
     lambda_ = np.empty((3,0))
     x = torch.tensor([[np.random.uniform(-20, 20), np.random.uniform(-20, 20), np.random.uniform(0,50)]])
-    x = torch.tensor([[2,4,9]])
+    #x = torch.tensor([[2,4,9]])
     x = (x - mean)/std
     for i in range(transient_steps):
         x = x.float()
@@ -106,10 +107,10 @@ def analysis(MODEL_NAME: str,
 if __name__ == '__main__':
     # l1, l2, l3 = [],[],[]
     # for _ in range(20):
-    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="hmmmm_2")
-    #     l1.append(lyapunov_11)
-    #     l2.append(lyapunov_21)
-    #     l3.append(lyapunov_31)
+    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="softplus_model")
+        # l1.append(lyapunov_11)
+        # l2.append(lyapunov_21)
+        # l3.append(lyapunov_31)
 
     # l1 = np.mean(np.asarray(l1))
     # l2 = np.mean(np.asarray(l2))
@@ -120,28 +121,36 @@ if __name__ == '__main__':
 
     sv_real = np.asarray(results['singular_values'])
 
+    # grads_model = (sv1[1:,2] - sv1[:-1,2])/0.01
+    # print('MODEL:')
+    # print(np.min(grads_model))
+
+    # grads_real = (sv_real[1:,2] - sv_real[:-1,2])/0.01
+    # print('REAL:')
+    # print(np.min(grads_real))
+
+
+    print(f"REal: {np.min(sv_real[:,2])}")
+    print(f"REal: {np.max(sv_real[:,2])}")
+
+    #print(f"Model: {np.min(sv1[:,2])}")    
+
+    #print(f"Lyapunov1: {lyapunov_11}\nLyapunov2: {lyapunov_21}\nLyapunov3: {lyapunov_31}\n")
     fig, axes = plt.subplots(3,1)
 
-    axes[0].plot(sv1[1400:2400,0], label = 'SV1 - model')
-    axes[1].plot(sv1[1400:2400,1], label = 'SV2 - model')
-    axes[2].plot(sv1[1400:2400,2], label = 'SV3 - model')
-    axes[0].set_title('Singular Value Decomposition- Model')
-    axes[0].set_xlabel('Timestep, dt = 0.01')
-    axes[0].set_ylabel('SV')
-    axes[0].legend()
+    #axes[0].plot(sv1[:1000,0], label = 'SV1 - model')
+    #axes[1].plot(sv1[:1000,1], label = 'SV2 - model')
+    #axes[2].plot(sv1[:1000,2], label = 'SV3 - model')
 
-    axes[0].plot(sv_real[1400:2400,0], label = 'SV1 - true')
-    axes[1].plot(sv_real[1400:2400,1], label = 'SV2 -  true')
-    axes[2].plot(sv_real[1400:2400,2], label = 'SV3 - true')
+
+    axes[0].plot(sv_real[:1000,0], label = 'SV1 - true')
+    axes[1].plot(sv_real[:1000,1], label = 'SV2 -  true')
+    axes[2].plot(sv_real[:1000,2], label = 'SV3 - true')
 
     axes[1].legend()
     axes[0].legend()
     axes[2].legend()
     fig.tight_layout()
     plt.show()
+    print('done')
 
-
-    print(f"REal: {np.min(sv_real[:,2])}")
-    print(f"Model: {np.min(sv1[:,2])}")    
-
-    print(f"Lyapunov1: {lyapunov_11}\nLyapunov2: {lyapunov_21}\nLyapunov3: {lyapunov_31}\n")

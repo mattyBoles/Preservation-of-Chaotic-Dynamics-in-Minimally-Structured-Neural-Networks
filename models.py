@@ -17,6 +17,8 @@ class tanh_model(torch.nn.Module):
             self.activation = torch.arctan
         elif activation == 'softplus':
             self.activation = lambda x: torch.nn.functional.softplus(x, beta=beta)
+        elif activation == 'gelu':
+            self.activation = lambda x: x - torch.nn.functional.gelu(x)
         else:
             raise ValueError(f"Unknown activation: {activation}")
             
@@ -93,3 +95,13 @@ class parameterised_softplus(torch.nn.Module):
             torch.log1p(torch.exp(bx)) / self.alphas
         )
 
+
+class WeightedMSELoss(nn.Module):
+    def __init__(self, std):
+        super().__init__()
+        self.register_buffer("std", std)
+
+    def forward(self, preds, targets):
+        err = preds - targets
+        mse = torch.mean(err**2, dim=0) * self.std.squeeze()**2
+        return torch.mean(mse)

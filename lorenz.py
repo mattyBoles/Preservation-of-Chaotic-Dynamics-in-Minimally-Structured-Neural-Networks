@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Callable, Optional
+import random
 
 class LorenzGenerator():
 
@@ -188,7 +189,7 @@ class LorenzGenerator():
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        ax.set_title('Lorenz')
+        ax.set_title(f'Lorenz Attractor')
 
         if traj2 is not None:
             x, y, z = traj2[:,0], traj2[:,1], traj2[:,2]
@@ -307,12 +308,13 @@ class LorenzGenerator():
                 
 
         for i in range(trajectory_steps):
+            Phi = np.eye(3)
+            _, Phi = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Phi,  dt=dt)
             x, Q = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Q,  dt=dt)
             x_.append(x)
             
-            J = self.J(x)
-            J = np.eye(3) + dt*J
-            U, S, Vt = np.linalg.svd(J)
+
+            U, S, Vt = np.linalg.svd(Phi)
 
             singular_values.append(S)
             l_vectors.append(U)
@@ -345,9 +347,9 @@ if __name__ == '__main__':
     
     generator = LorenzGenerator()
 
-    traj = generator.generate_trajectory(x0=np.array([1,1,0]), n_steps=10000)
+    traj = generator.generate_trajectory(x0=np.array([2,4,9]), n_steps=100000)
 
-    generator.plot('',traj)
+    
 
     
 

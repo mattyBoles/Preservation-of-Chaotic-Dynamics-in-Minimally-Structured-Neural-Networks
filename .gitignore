@@ -31,3 +31,11 @@ dataset/
 *.pt
 experiment.py
 lbfgs_vs_adam.py
+mega_experiment/
+coloured_traj.py
+lorenz_map.py
+mega_analysis.py
+mega*
+neuron_contributiion.py
+sv3_vs_z_max.py
+tanh_alysis.py
