@@ -120,16 +120,21 @@ class traj_Dataset(torch.utils.data.Dataset):
         return self.samples[idx], self.targets[idx]
     
 if __name__ == '__main__':
-    train_set = torch.load(r".\dataset\train_dataset.pt")
-    mean = train_set['mean']
-    std = train_set['std']
-    dataset = traj_Dataset(n_trajectories=32, n_samples_per_traj=200, n_transient = 5000, mean = mean, std = std)
-    torch.save({
-        'samples': dataset.samples,
-        'targets': dataset.targets,
-        'mean': dataset.mean,
-        'std': dataset.std
-    }, r'.\dataset\val_dataset.pt')
+    # train_set = torch.load(r".\dataset\small_train_set_dataset.pt")
+    # mean = train_set['mean']
+    # std = train_set['std']
+    # dataset = traj_Dataset(n_trajectories=12, n_samples_per_traj=5, n_transient = 5000, mean = mean, std = std)
+    # torch.save({
+    #     'samples': dataset.samples,
+    #     'targets': dataset.targets,
+    #     'mean': dataset.mean,
+    #     'std': dataset.std
+    # }, r'.\dataset\small_val_set_dataset.pt')
+    val_set = torch.load(r".\dataset\small_val_set_dataset.pt")
+    test_set = torch.load(r".\dataset\small_test_set_dataset.pt")
+
+    print(test_set['samples'])
+    print(val_set['samples'])
 
 
 

@@ -107,7 +107,7 @@ def analysis(MODEL_NAME: str,
 if __name__ == '__main__':
     # l1, l2, l3 = [],[],[]
     # for _ in range(20):
-    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="softplus_model")
+    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="2026-07-20T12-50-26tanh2")
         # l1.append(lyapunov_11)
         # l2.append(lyapunov_21)
         # l3.append(lyapunov_31)
@@ -136,20 +136,25 @@ if __name__ == '__main__':
     #print(f"Model: {np.min(sv1[:,2])}")    
 
     #print(f"Lyapunov1: {lyapunov_11}\nLyapunov2: {lyapunov_21}\nLyapunov3: {lyapunov_31}\n")
-    fig, axes = plt.subplots(3,1)
+    fig, axes = plt.subplots(2,1)
 
-    #axes[0].plot(sv1[:1000,0], label = 'SV1 - model')
-    #axes[1].plot(sv1[:1000,1], label = 'SV2 - model')
-    #axes[2].plot(sv1[:1000,2], label = 'SV3 - model')
+    axes[0].plot(sv1[:1000,0], label = 'SV1 - model')
+    axes[0].plot(sv1[:1000,1], label = 'SV2 - model')
+    axes[0].plot(sv1[:1000,2], label = 'SV3 - model')
 
 
-    axes[0].plot(sv_real[:1000,0], label = 'SV1 - true')
+    axes[1].plot(sv_real[:1000,0], label = 'SV1 - true')
     axes[1].plot(sv_real[:1000,1], label = 'SV2 -  true')
-    axes[2].plot(sv_real[:1000,2], label = 'SV3 - true')
+    axes[1].plot(sv_real[:1000,2], label = 'SV3 - true')
 
     axes[1].legend()
     axes[0].legend()
-    axes[2].legend()
+    axes[0].set_title('Singular Value Decomposition: ReLU Model')
+    axes[0].set_xlabel('Timestep, dt = 0.01')
+    axes[0].set_ylabel('Singular Values')
+    axes[1].set_title('Singular Value Decomposition: True lorenz')
+    axes[1].set_xlabel('Timestep, dt = 0.01')
+    axes[1].set_ylabel('Singular Values')
     fig.tight_layout()
     plt.show()
     print('done')
