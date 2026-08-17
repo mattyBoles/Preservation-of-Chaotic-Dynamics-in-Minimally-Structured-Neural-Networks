@@ -52,7 +52,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     #MODEL_NAME = str(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")) + '_6_width_model'
     MODEL_NAME = config['MODEL_NAME']
 
-    output_dir = f'./output/{MODEL_NAME}'
+    output_dir = f'./betas/'
     os.makedirs(output_dir, exist_ok=True)
 
     n_trajectories = config['n_traj']
@@ -101,7 +101,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     val_loader = torch.utils.data.DataLoader(val_set, batch_size = len(val_set), shuffle=False)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size = len(test_set), shuffle=False)
 
-    model = tanh_model(config['hidden_size'], config['activation'], RANDOM_SEED=RANDOM_SEED, beta=config['beta']).to(device)
+    model = tanh_model(config['hidden_size'], config['activation'], RANDOM_SEED=RANDOM_SEED).to(device)
 
     loss_fn = WeightedMSELoss(std=std)
     optimiser = torch.optim.LBFGS(
@@ -127,7 +127,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
                         device = device)
     
 
-    torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_last_epoch.pth')
+    #torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_last_epoch.pth')
 
     best_val_loss = train_results['val_loss'].index(min(train_results['val_loss']))
     model.load_state_dict(train_results['model_statedict'][best_val_loss])
@@ -192,42 +192,42 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         "TEST_LOSS" : to_py_float(test_loss),
         "TEST_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(test_avg_err)}
 
-    with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
-        json.dump(output_dict, f, indent=2, default=str)
+    # with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
+    #     json.dump(output_dict, f, indent=2, default=str)
     
 
-    ly1, ly2, ly3 = [],[],[]
-    for _ in range(20):
-        l1, l2, l3, _ = analysis(MODEL_NAME=MODEL_NAME)
-        ly1.append(l1)
-        ly2.append(l2)
-        ly3.append(l3)
+    # ly1, ly2, ly3 = [],[],[]
+    # for _ in range(20):
+    #     l1, l2, l3, _ = analysis(MODEL_NAME=MODEL_NAME)
+    #     ly1.append(l1)
+    #     ly2.append(l2)
+    #     ly3.append(l3)
     
-    l1 = np.mean(np.asarray(ly1))
-    l2 = np.mean(np.asarray(ly2))
-    l3 = np.mean(np.asarray(ly3))
+    # l1 = np.mean(np.asarray(ly1))
+    # l2 = np.mean(np.asarray(ly2))
+    # l3 = np.mean(np.asarray(ly3))
 
 
-    output_dict.update({
-            "Lyapunov1": l1,
-            "Lyapunov2": l2,
-            "Lyapunov3": l3,
-        })
+    # output_dict.update({
+    #         "Lyapunov1": l1,
+    #         "Lyapunov2": l2,
+    #         "Lyapunov3": l3,
+    #     })
 
-    with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
-            json.dump(output_dict, f, indent=2, default=str)
+    # with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
+    #         json.dump(output_dict, f, indent=2, default=str)
 
 
-    plot_model(model = model,
-            x0 = np.array([1,1,25]),
-            n_steps = 10000,
-            mean = mean,
-            std = std,
-            output_dir=output_dir,
-            MODEL_NAME=MODEL_NAME)
+    # plot_model(model = model,
+    #         x0 = np.array([1,1,25]),
+    #         n_steps = 10000,
+    #         mean = mean,
+    #         std = std,
+    #         output_dir=output_dir,
+    #         MODEL_NAME=MODEL_NAME)
 
-    plot_loss(trn_results = train_results,
-              output_dir=output_dir)
+    # plot_loss(trn_results = train_results,
+    #           output_dir=output_dir)
     
 
     return output_dict
@@ -237,12 +237,12 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
 
 if __name__ == '__main__':
     config = {
-        "MODEL_NAME": 'relu_32_11_08',
+        "MODEL_NAME": 'tanh',
         'NUM_EPOCHS': 200,
         'hidden_size': 32,
         'n_traj': 100,
         'traj_length': 5,
-        'activation': 'relu',
+        'activation': torch.nn.Softplus,
         'beta': 1,
         'random_seed': random.randint(1,100)}
 

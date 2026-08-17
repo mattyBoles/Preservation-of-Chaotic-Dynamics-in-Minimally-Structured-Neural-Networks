@@ -107,7 +107,7 @@ def analysis(MODEL_NAME: str,
 if __name__ == '__main__':
     # l1, l2, l3 = [],[],[]
     # for _ in range(20):
-    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="2026-07-20T12-50-26tanh2")
+    lyapunov_11, lyapunov_21, lyapunov_31, sv1 = analysis(MODEL_NAME="geo_loss_tester")
         # l1.append(lyapunov_11)
         # l2.append(lyapunov_21)
         # l3.append(lyapunov_31)
@@ -121,21 +121,21 @@ if __name__ == '__main__':
 
     sv_real = np.asarray(results['singular_values'])
 
-    # grads_model = (sv1[1:,2] - sv1[:-1,2])/0.01
-    # print('MODEL:')
-    # print(np.min(grads_model))
+    grads_model = (sv1[1:,2] - sv1[:-1,2])/0.01
+    print('MODEL:')
+    print(np.min(grads_model))
 
-    # grads_real = (sv_real[1:,2] - sv_real[:-1,2])/0.01
-    # print('REAL:')
-    # print(np.min(grads_real))
+    grads_real = (sv_real[1:,2] - sv_real[:-1,2])/0.01
+    print('REAL:')
+    print(np.min(grads_real))
 
 
     print(f"REal: {np.min(sv_real[:,2])}")
-    print(f"REal: {np.max(sv_real[:,2])}")
+    #print(f"REal: {np.max(sv_real[:,2])}")
 
-    #print(f"Model: {np.min(sv1[:,2])}")    
+    print(f"Model: {np.min(sv1[:,2])}")    
 
-    #print(f"Lyapunov1: {lyapunov_11}\nLyapunov2: {lyapunov_21}\nLyapunov3: {lyapunov_31}\n")
+    print(f"Lyapunov1: {lyapunov_11}\nLyapunov2: {lyapunov_21}\nLyapunov3: {lyapunov_31}\n")
     fig, axes = plt.subplots(2,1)
 
     axes[0].plot(sv1[:1000,0], label = 'SV1 - model')

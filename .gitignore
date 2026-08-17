@@ -40,3 +40,7 @@ neuron_contributiion.py
 sv3_vs_z_max.py
 tanh_alysis.py
 pltotss.py
+activations_test/
+geometric_loss/
+betas/
+landscape_analysis.py
