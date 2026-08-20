@@ -6,6 +6,7 @@ import os
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+import copy
 
 from data import traj_Dataset
 from models import tanh_model, avg_euclidean_error, parameterised_beta_model, WeightedMSELoss
@@ -52,7 +53,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     #MODEL_NAME = str(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")) + '_6_width_model'
     MODEL_NAME = config['MODEL_NAME']
 
-    output_dir = f'./output/{MODEL_NAME}'
+    output_dir = f'./init'
     os.makedirs(output_dir, exist_ok=True)
 
     n_trajectories = config['n_traj']
@@ -102,6 +103,8 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     test_loader = torch.utils.data.DataLoader(test_set, batch_size = len(test_set), shuffle=False)
 
     model = tanh_model(config['hidden_size'], config['activation'], RANDOM_SEED=RANDOM_SEED).to(device)
+
+    start_model = copy.deepcopy(model)
 
     loss_fn = WeightedMSELoss(std=std)
     optimiser = torch.optim.LBFGS(
@@ -230,7 +233,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
               output_dir=output_dir)
     
 
-    return output_dict
+    return output_dict, start_model
 
 
 

@@ -45,3 +45,5 @@ geometric_loss/
 betas/
 landscape_analysis.py
 saddles/
+ortho/
+init/
