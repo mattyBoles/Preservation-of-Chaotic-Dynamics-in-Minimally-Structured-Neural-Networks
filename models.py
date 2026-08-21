@@ -4,7 +4,7 @@ from torch import nn
 
 
 class tanh_model(torch.nn.Module):
-    def __init__(self, hidden_units, activation, RANDOM_SEED=None):
+    def __init__(self, hidden_units, activation, input_size: int = 3, RANDOM_SEED=None):
         super().__init__()
         if RANDOM_SEED is not None:
             torch.manual_seed(RANDOM_SEED)
@@ -18,8 +18,8 @@ class tanh_model(torch.nn.Module):
         else:
             raise ValueError(f"Unknown activation: {activation}")
                     
-        self.linear1 = torch.nn.Linear(in_features=3, out_features=hidden_units)
-        self.linear2 = torch.nn.Linear(in_features=hidden_units, out_features=3)
+        self.linear1 = torch.nn.Linear(in_features=input_size, out_features=hidden_units)
+        self.linear2 = torch.nn.Linear(in_features=hidden_units, out_features=input_size)
 
 
     def forward(self, x):

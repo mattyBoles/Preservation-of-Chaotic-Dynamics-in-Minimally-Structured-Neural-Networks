@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 import copy
 
-from data import traj_Dataset
+from data import traj_Dataset, lorenz_96_Dataset
 from models import tanh_model, avg_euclidean_error, parameterised_beta_model, WeightedMSELoss
 from engine import train, test
-from plot import plot_model, plot_loss
 from model_analysis import analysis
-from li_and_ravela import W1, b1, W2, b2
+from plot import plot_model, plot_loss
+
 
 
 def train_model(config:dict) -> tuple[str, float, float, float]:
@@ -53,22 +53,24 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     #MODEL_NAME = str(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")) + '_6_width_model'
     MODEL_NAME = config['MODEL_NAME']
 
-    output_dir = f'./init'
+    output_dir = f'./output/{MODEL_NAME}'
     os.makedirs(output_dir, exist_ok=True)
 
     n_trajectories = config['n_traj']
     n_samples_per_traj = config['traj_length']
-    n_transient = 5000
+    n_transient = 10000
     dt = 0.01
 
 
-    train_set = traj_Dataset(n_trajectories=n_trajectories,
-                            n_samples_per_traj=n_samples_per_traj,
-                            n_transient=n_transient,
-                            dt=dt,
-                            mean = None,
-                            std = None,
-                            RANDOM_SEED = RANDOM_SEED)
+    train_set = lorenz_96_Dataset(N=8,
+                                  F=8,
+                                  n_trajectories=n_trajectories,
+                                  n_samples_per_traj=n_samples_per_traj,
+                                  n_transient=n_transient,
+                                  dt=dt,
+                                  mean = None,
+                                  std = None,
+                                  RANDOM_SEED = RANDOM_SEED)
     
 
     mean = train_set.mean
@@ -76,21 +78,25 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
 
 
 
-    val_set = traj_Dataset(n_trajectories=max(int(n_trajectories/8),4),
-                            n_samples_per_traj=n_samples_per_traj,
-                            n_transient=n_transient,
-                            dt=dt,
-                            mean = mean,
-                            std = std,
-                            RANDOM_SEED=RANDOM_SEED*10)
+    val_set = lorenz_96_Dataset(N=8,
+                                F=8,
+                                n_trajectories=max(int(n_trajectories/8),4),
+                                n_samples_per_traj=n_samples_per_traj,
+                                n_transient=n_transient,
+                                dt=dt,
+                                mean = mean,
+                                std = std,
+                                RANDOM_SEED = RANDOM_SEED*10)
     
-    test_set = traj_Dataset(n_trajectories=max(int(n_trajectories/8),4),
-                            n_samples_per_traj=n_samples_per_traj,
-                            n_transient=n_transient,
-                            dt=dt,
-                            mean = mean,
-                            std = std,
-                            RANDOM_SEED=RANDOM_SEED*100)
+    test_set = lorenz_96_Dataset(N=8,
+                                 F=8,
+                                 n_trajectories=max(int(n_trajectories/8),4),
+                                 n_samples_per_traj=n_samples_per_traj,
+                                 n_transient=n_transient,
+                                 dt=dt,
+                                 mean = mean,
+                                 std = std,
+                                 RANDOM_SEED = RANDOM_SEED*10)
 
 
     #BATCH_SIZE = 64 for lbfgs, use full set
@@ -102,7 +108,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     val_loader = torch.utils.data.DataLoader(val_set, batch_size = len(val_set), shuffle=False)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size = len(test_set), shuffle=False)
 
-    model = tanh_model(config['hidden_size'], config['activation'], RANDOM_SEED=RANDOM_SEED).to(device)
+    model = tanh_model(config['hidden_size'], config['activation'], N = 8, RANDOM_SEED=RANDOM_SEED).to(device)
 
     start_model = copy.deepcopy(model)
 
@@ -183,6 +189,8 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     output_dict = {
         "MODEL_NAME":MODEL_NAME,
         "NUM_EPOCHS": config['NUM_EPOCHS'],
+        "N": config["N"],
+        "F": config["F"],
         "NUM_TRAJ": config['n_traj'],
         "TRAJ_LENGTH": config['traj_length'],
         "ACTIVATION": str(config['activation']),
@@ -195,8 +203,8 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         "TEST_LOSS" : to_py_float(test_loss),
         "TEST_AVERAGE_EUCLIDEAN_DISTANCE": to_py_float(test_avg_err)}
 
-    with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
-        json.dump(output_dict, f, indent=2, default=str)
+    # with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
+    #     json.dump(output_dict, f, indent=2, default=str)
     
 
     # ly1, ly2, ly3 = [],[],[]
@@ -221,13 +229,13 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     #         json.dump(output_dict, f, indent=2, default=str)
 
 
-    plot_model(model = model,
-            x0 = np.array([1,1,25]),
-            n_steps = 10000,
-            mean = mean,
-            std = std,
-            output_dir=output_dir,
-            MODEL_NAME=MODEL_NAME)
+    # plot_model(model = model,
+    #         x0 = np.array([1,1,25]),
+    #         n_steps = 10000,
+    #         mean = mean,
+    #         std = std,
+    #         output_dir=output_dir,
+    #         MODEL_NAME=MODEL_NAME)
 
     plot_loss(trn_results = train_results,
               output_dir=output_dir)
@@ -242,10 +250,12 @@ if __name__ == '__main__':
     config = {
         "MODEL_NAME": 'tanh',
         'NUM_EPOCHS': 200,
-        'hidden_size': 32,
+        'N': 8,
+        'F': 8,
+        'hidden_size': 16,
         'n_traj': 100,
         'traj_length': 5,
-        'activation': torch.nn.Softplus,
+        'activation': torch.nn.Softplus(),
         'beta': 1,
         'random_seed': random.randint(1,100)}
 

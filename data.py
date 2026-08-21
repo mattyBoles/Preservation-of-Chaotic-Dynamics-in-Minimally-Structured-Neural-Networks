@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 import numpy as np
 from lorenz import LorenzGenerator
+from lorenz_96 import lorenz_96
 import random
 from typing import Optional
 
@@ -118,6 +119,105 @@ class traj_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         return self.samples[idx], self.targets[idx]
+
+
+
+class lorenz_96_Dataset(torch.utils.data.Dataset):
+
+    '''
+    Dataset containing pairs of (1,3) points and their following output. All z-score normalised accoridng to input mean, std , or if empty, clauclated from inputs.
+    One can also load a presvaed dataset.
+    
+    '''
+    def __init__(self,
+                 N: int,
+                 F: int,
+                 n_trajectories: int,
+                 n_samples_per_traj: int,
+                 n_transient: int,
+                 dt: int = 0.01, 
+                 mean: Optional[torch.Tensor] = None,
+                 std: Optional[torch.Tensor] = None,
+                 preloaded: Optional[dict] = None,
+                 RANDOM_SEED = random.randint(1,100)):
+        '''
+        Inputs:
+            n_trajectories (int): The amount of initnial starting points of trajectories to use.
+            n_samples_per_traj (int): As it sounds.
+            n_transient (int): Number of trajectories to throw away at the start to ensure samples are on the attractor.
+
+        '''
+
+        
+        torch.manual_seed(RANDOM_SEED)
+        random.seed(RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
+        torch.use_deterministic_algorithms(True)
+        self.traj_generator = lorenz_96(N=N, F=F, dt=dt)
+        self.N = N
+
+        self.n_trajectories = n_trajectories
+        self.n_samples_per_traj = n_samples_per_traj
+        self.n_transient = n_transient
+        self.dt = dt
+        if preloaded is not None:
+            # Use saved data directly
+            self.samples = preloaded['samples']
+            self.targets = preloaded['targets']
+            self.mean = preloaded['mean']
+            self.std = preloaded['std']
+        else:
+
+            self.samples, self.targets = self.generate_samples()
+
+            if mean == None:
+                self.mean =torch.mean(self.samples, axis=0)
+                self.std =torch.std(self.samples, axis=0)
+            else:
+                self.mean = mean
+                self.std = std
+            
+            self.samples = (self.samples - self.mean) / self.std
+            self.targets = (self.targets - self.mean) / self.std
+
+        print(f"Initialised Dataset:\n{self.n_trajectories} Trajectories \n{self.n_samples_per_traj} Samples per Trajectory\n{self.n_transient} Transient steps\nh = {self.dt}")
+
+    def generate_samples(self):
+        samples = np.empty((0,self.N))
+        targets = np.empty((0,self.N))
+
+        for i in range(int(self.n_trajectories)):
+
+            x =8.0 + 0.1 * np.random.normal(size=8)
+
+            for _ in range(self.n_transient):
+                x, _ = self.traj_generator(self.traj_generator.derive, self.traj_generator.J, x)
+            traj = []
+            for _ in range(self.n_samples_per_traj):
+                x, _ = self.traj_generator(self.traj_generator.derive, self.traj_generator.J, x)
+                traj.append(x.copy())
+
+            samples = np.vstack([samples, np.asarray(traj)])
+
+            last_target = self.traj_generator.rk4(self.traj_generator.calc_derivatives, x = traj[-1], dt = self.dt)
+
+            targets = np.vstack([targets,np.vstack([traj[1:], last_target])])
+
+
+        samples = torch.tensor(samples)
+        targets = torch.tensor(targets)
+
+        return samples, targets 
+        
+
+
+    def __len__(self):
+        return (len(self.samples))
+
+    def __getitem__(self, idx):
+
+        return self.samples[idx], self.targets[idx]
+
     
 if __name__ == '__main__':
     # train_set = torch.load(r".\dataset\small_train_set_dataset.pt")
