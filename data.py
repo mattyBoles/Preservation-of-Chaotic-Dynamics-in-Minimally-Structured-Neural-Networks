@@ -186,22 +186,26 @@ class lorenz_96_Dataset(torch.utils.data.Dataset):
         samples = np.empty((0,self.N))
         targets = np.empty((0,self.N))
 
-        for i in range(int(self.n_trajectories)):
 
-            x =8.0 + 0.1 * np.random.normal(size=8)
+        x =8.0 + 0.1 * np.random.normal(size=8)
 
-            for _ in range(self.n_transient):
-                x, _ = self.traj_generator(self.traj_generator.derive, self.traj_generator.J, x)
-            traj = []
-            for _ in range(self.n_samples_per_traj):
-                x, _ = self.traj_generator(self.traj_generator.derive, self.traj_generator.J, x)
-                traj.append(x.copy())
+        for _ in range(self.n_transient):
+            x, _ = self.traj_generator.rk4(self.traj_generator.derive, self.traj_generator.J, x)
+        traj = []
+        for _ in range(100000):
+            x, _ = self.traj_generator.rk4(self.traj_generator.derive, self.traj_generator.J, x)
+            traj.append(x.copy())
+        traj = np.asarray(traj)
 
-            samples = np.vstack([samples, np.asarray(traj)])
+        for i in range(self.n_trajectories):
+            index = np.random.randint(0,len(traj)-5)
+            traj_chosen = traj[index:index+6]
 
-            last_target = self.traj_generator.rk4(self.traj_generator.calc_derivatives, x = traj[-1], dt = self.dt)
+            samples = np.vstack([samples, traj_chosen[:-1]])
 
-            targets = np.vstack([targets,np.vstack([traj[1:], last_target])])
+        
+
+            targets = np.vstack([targets,traj_chosen[1:]])
 
 
         samples = torch.tensor(samples)

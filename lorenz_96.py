@@ -124,33 +124,57 @@ class lorenz_96():
         svs = np.asarray(svs)
         return svs
 
+    def plot(self,
+                x: np.ndarray,
+                transient_steps: int = 5000,
+                trajectory_steps: int = 10000):
+
+        traj = []
+        traj.append(x0)
+
+        for _ in range(transient_steps):
+            x, _ = self.rk4(self.derive, self.J, x)
+        for _ in range(trajectory_steps):
+            x, _ = self.rk4(self.derive, self.J, x)
+            traj.append(x)
+
+        traj = np.asarray(traj)
+
+        fig, ax = plt.subplots(figsize=(10, 3))
+
+        im = ax.imshow(
+            traj[:1000].T,
+            aspect='auto',
+            origin='lower',
+            cmap='RdBu_r',
+            interpolation='nearest'
+        )
+
+        ax.set_xlabel('Time step')
+        ax.set_ylabel('Variable $i$')
+        ax.set_yticks(range(8))
+        ax.set_yticklabels(range(1, 9))
+        ax.set_title("Lorenz-96 Values for N = F = 8")
+
+        cbar = fig.colorbar(im, ax=ax, pad=0.02)
+        cbar.set_label('$x_i$')
+
+        plt.tight_layout()
+        plt.show()
+
+
+         
+
 if __name__ == "__main__":
     c = lorenz_96(8,8, 0.01)
 
     x0 = np.array([8.01, 8, 8, 8, 8, 8, 8, 8], dtype=float)
 
-    lyapunov = c.find_lyapunov_spectrum(x0)
-    print(f"Lambda1: {lyapunov[0]}")
-    print(f"Lambda2: {lyapunov[1]}")
-    print(f"Lambda3: {lyapunov[2]}")
-    print(f"Lambda4: {lyapunov[3]}")
-    print(f"Lambda5: {lyapunov[4]}")
-    print(f"Lambda6: {lyapunov[5]}")
-    print(f"Lambda7: {lyapunov[6]}")
-    print(f"Lambda8: {lyapunov[7]}")
+    svs = c.find_lyapunov_spectrum(x0)
 
-    svs = c.find_svs(x0)
+    svs = [round(x, 4) for x in svs]
+    print(svs)
 
-    fig, ax = plt.subplots()
-    ax.plot(svs[:,4], label = 'Lambda5')
-    ax.plot(svs[:,5], label = 'Lambda6')
-    ax.plot(svs[:,6], label = 'Lambda7')
-    ax.plot(svs[:,7], label = 'Lambda8')
-    ax.set_xlabel('dt=0.01')
-    ax.set_ylabel('SV')
-    ax.set_title('SVs of Double Pendulum')
-    ax.legend()
-    plt.show()
 
     
 

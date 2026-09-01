@@ -60,3 +60,49 @@ def plot_loss(trn_results: dict,
 
     output_path = Path(output_dir, Path(output_dir).parts[-1] + '_loss_curve.png')
     plt.savefig(output_path)
+
+
+def plot_96(model,
+            x0: np.ndarray,
+            n_transient: int,
+            n_steps: int,
+            mean: torch.Tensor,
+            std: torch.Tensor,
+            output_dir: str,
+            MODEL_NAME: str) -> None:
+
+    model_traj = []
+    x_model = ((torch.tensor(x0) - mean)/std).float()
+
+    for _ in range(n_transient):
+        x_model = x_model.float()
+        x_model = model(x_model)
+
+    for _ in range(n_steps):
+        x_model = x_model.float()
+        x_model = model(x_model)
+        model_traj.append((x_model * std + mean).detach().numpy())
+        traj = np.asarray(model_traj)
+        
+    fig, ax = plt.subplots(figsize=(10, 3))
+
+    im = ax.imshow(
+        traj[:1000].T,
+        aspect='auto',
+        origin='lower',
+        cmap='RdBu_r',
+        interpolation='nearest'
+    )
+
+    ax.set_xlabel('Time step')
+    ax.set_ylabel('Variable $i$')
+    ax.set_yticks(range(8))
+    ax.set_yticklabels(range(1, 9))
+    ax.set_title(MODEL_NAME)
+
+    cbar = fig.colorbar(im, ax=ax, pad=0.02)
+    cbar.set_label('$x_i$')
+
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/{MODEL_NAME}_traj.png')
+    plt.close('all')

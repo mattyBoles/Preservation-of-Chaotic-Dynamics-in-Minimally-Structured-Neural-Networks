@@ -47,3 +47,7 @@ landscape_analysis.py
 saddles/
 ortho/
 init/
+figs/
+l96_analysis.py
+model_analysis.py
+model_analysis_96.py

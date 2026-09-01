@@ -34,10 +34,14 @@ def analysis(MODEL_NAME: str,
     with open(Path(root_folder, MODEL_NAME+'_train.json'), 'r') as f:
             model_info = json.load(f)
             activation = model_info['ACTIVATION']
+            if 'anh' in activation:
+                 activation = torch.nn.Tanh()
+            elif 'softplus' in activation:
+                 activation = torch.nn.Softplus(beta=beta)
             hidden_size = model_info['HIDDEN_SIZE']
             beta = 1
 
-    model = tanh_model(hidden_units=hidden_size, activation=activation, beta=beta).to(device)
+    model = tanh_model(hidden_units=hidden_size, activation=activation).to(device)
     model.load_state_dict(torch.load(Path(root_folder,MODEL_NAME+"_best_epoch.pth")))
     model = model.to(device)
 
