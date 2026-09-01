@@ -332,25 +332,6 @@ if __name__ == "__main__":
 
     c.animate(x0)
 
-    # lyapunov_spectrum = c.find_lyapunov_spectrum(x0)
-    # print(f"Lambda1: {lyapunov_spectrum[0]}")
-    # print(f"Lambda2: {lyapunov_spectrum[1]}")
-    # print(f"Lambda3: {lyapunov_spectrum[2]}")
-    # print(f"Lambda4: {lyapunov_spectrum[3]}")
-
-    # svs = c.find_svs(x0)
-
-    # fig, ax = plt.subplots()
-    # ax.plot(svs[:,0], label = 'Lambda1')
-    # ax.plot(svs[:,1], label = 'Lambda2')
-    # ax.plot(svs[:,2], label = 'Lambda3')
-    # ax.plot(svs[:,3], label = 'Lambda4')
-    # ax.set_xlabel('dt=0.01')
-    # ax.set_ylabel('SV')
-    # ax.set_title('SVs of Double Pendulum')
-    # ax.legend()
-    # plt.show()
-
 
 
     

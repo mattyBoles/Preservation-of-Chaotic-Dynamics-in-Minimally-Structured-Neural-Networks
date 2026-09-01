@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from lorenz import LorenzGenerator
+from lorenz_63 import LorenzGenerator
 from pathlib import Path
 
 def plot_model(model:torch.nn.Module,

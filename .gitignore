@@ -3,7 +3,6 @@ output/
 output_1/
 lorenz_ani.py
 *.png
-*.csv
 *.log
 best/
 tanh_32/
@@ -51,3 +50,5 @@ figs/
 l96_analysis.py
 model_analysis.py
 model_analysis_96.py
+double_pendulum.py
+lorenz_map.py

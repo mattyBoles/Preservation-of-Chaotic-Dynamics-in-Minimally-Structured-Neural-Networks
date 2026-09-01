@@ -1,7 +1,7 @@
 import pandas as pd
 import torch
 import numpy as np
-from lorenz import LorenzGenerator
+from lorenz_63 import LorenzGenerator
 from lorenz_96 import lorenz_96
 import random
 from typing import Optional
