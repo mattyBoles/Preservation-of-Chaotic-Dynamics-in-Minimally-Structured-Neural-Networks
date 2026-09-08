@@ -2,21 +2,22 @@ import torch
 import numpy as np
 from copy import deepcopy
 from tqdm import tqdm
+from typing import Callable, Tuple
 
 
-def train_epoch(model,
-                dataloader,
-                loss_fn,
-                optimiser,
-                err_fn,
-                device):
+def train_epoch(model: torch.nn.Module,
+                dataloader: torch.utils.data.DataLoader,
+                loss_fn: Callable,
+                optimiser: torch.optim.Optimizer,
+                err_fn: Callable,
+                device: torch.device)-> Tuple[float, float]:
     
     model = model.to(device)
 
     model.train()
 
-    epoch_err = 0
-    epoch_loss = 0
+    epoch_err = 0.0
+    epoch_loss = 0.0
     epoch_preds = []
 
     n_batches = len(dataloader)
@@ -50,18 +51,18 @@ def train_epoch(model,
 
     return epoch_loss, epoch_err
 
-def val_epoch(model,
-                dataloader,
-                loss_fn,
-                err_fn,
-                device):
+def val_epoch(model: torch.nn.Module,
+              dataloader: torch.utils.data.DataLoader,
+              loss_fn: Callable,
+              err_fn: Callable,
+              device: torch.device)-> Tuple[float, float]:
     
     model = model.to(device)
 
     model.eval()
 
-    epoch_err = 0
-    epoch_loss = 0
+    epoch_err = 0.0
+    epoch_loss = 0.0
     epoch_preds = []
 
     n_batches = len(dataloader)
@@ -94,14 +95,14 @@ def val_epoch(model,
         return epoch_loss, epoch_err
 
 
-def train(model,
-          train_loader,
-          val_loader,
-          loss_fn,
-          optimiser,
-          err_fn,
-          NUM_EPOCHS,
-          device):
+def train(model: torch.nn.Module,
+          train_loader: torch.utils.data.DataLoader,
+          val_loader: torch.utils.data.DataLoader,
+          loss_fn: Callable,
+          optimiser: torch.optim.Optimizer,
+          err_fn: Callable,
+          NUM_EPOCHS: int,
+          device: torch.device)->dict[str: list]:
     
     results = {
         'train_loss': [],
@@ -138,12 +139,12 @@ def train(model,
     return results    
     
 
-def test(model,
-         dataloader,
-         loss_fn,
-         err_fn,
-         std,
-         device):
+def evaluate(model: torch.nn.Module,
+         dataloader: torch.utils.data.DataLoader,
+         loss_fn: Callable,
+         err_fn: Callable,
+         device: torch.device) -> Tuple[float, float]:
+    
     
     model = model.to(device)
 

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from typing import Callable, Optional
 import random
 
-class LorenzGenerator():
+class lorenz_63():
 
     '''
     Class to generate trajectories of a Lorenz attrcator, based on Lorenz63, the simplified weather model describing fluid motion and heat:
@@ -20,7 +20,8 @@ class LorenzGenerator():
     def __init__(self,
                  sigma: float = 10,
                  rho: float = 28,
-                 beta: float = 8/3):
+                 beta: float = 8/3,
+                 dt = 0.01):
         
         '''
         Initiates Lorenz generator class for given parameters:
@@ -34,6 +35,7 @@ class LorenzGenerator():
         self.sigma = sigma
         self.rho = rho
         self.beta = beta
+        self.dt = dt
 
         self.dxdt = lambda x, y, z: self.sigma * (y - x)
         self.dydt = lambda x, y, z: (x * (self.rho - z)) - y
@@ -97,12 +99,12 @@ class LorenzGenerator():
         return np.array([[-1*self.sigma, self.sigma, 0],
                            [self.rho - z, -1, -1*x],
                            [y, x, -1*self.beta]])
-    @staticmethod
-    def rk4_matrix_and_x(f: Callable,
+
+    def rk4_matrix_and_x(self,
+                         f: Callable,
                          J: Callable,
                          x: np.ndarray,
-                         U: np.ndarray,
-                         dt: float) -> tuple[np.ndarray, np.ndarray]:
+                         U: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
         
         '''
         Runge-Kutta 4th order time stepping scheme, to be used as ground truth. https://www.geeksforgeeks.org/dsa/runge-kutta-4th-order-method-solve-differential-equation/
@@ -121,20 +123,23 @@ class LorenzGenerator():
                 U_new: The new tangent propogater after timestepping.
         '''
 
+        if U is None:
+            U = np.eye(3)
+
         k1_x = f(x)
         k1_U = J(x) @ U
 
-        k2_x = f(x + (k1_x * dt/2))
-        k2_U = J(x + (k1_x * dt/2)) @ (U + (k1_U * dt/2))
+        k2_x = f(x + (k1_x * self.dt/2))
+        k2_U = J(x + (k1_x * self.dt/2)) @ (U + (k1_U * self.dt/2))
 
-        k3_x = f(x + (k2_x * dt/2))
-        k3_U = J(x + (k2_x * dt/2)) @ (U + (k2_U * dt/2))
+        k3_x = f(x + (k2_x * self.dt/2))
+        k3_U = J(x + (k2_x * self.dt/2)) @ (U + (k2_U * self.dt/2))
 
-        k4_x = f(x + (k3_x * dt))
-        k4_U = J(x + (k3_x * dt)) @ (U + (k3_U * dt))
+        k4_x = f(x + (k3_x * self.dt))
+        k4_U = J(x + (k3_x * self.dt)) @ (U + (k3_U * self.dt))
 
-        x_new = x + (dt/6 * (k1_x + 2*k2_x + 2*k3_x + k4_x))
-        U_new = U + (dt/6 * (k1_U + 2*k2_U + 2*k3_U + k4_U))
+        x_new = x + (self.dt/6 * (k1_x + 2*k2_x + 2*k3_x + k4_x))
+        U_new = U + (self.dt/6 * (k1_U + 2*k2_U + 2*k3_U + k4_U))
 
 
         return x_new, U_new
@@ -143,7 +148,7 @@ class LorenzGenerator():
     def generate_trajectory(self,
                             x0: np.ndarray,
                             n_steps: int,
-                            dt: float = 1/100) -> np.ndarray:
+                            dt: float = 0.01) -> np.ndarray:
         
         '''
         Generates a trajetcory by tiemstepping in rk4.
@@ -270,7 +275,7 @@ class LorenzGenerator():
                                QR_steps: int = 10,
                                dt: float = 0.01) -> dict:
         '''
-        Class to run find the lyapunov spectrum, and singular values, of lorenz via accumulated SVs and Qr decomp of the Jacobian.
+        Method to run find the lyapunov spectrum, and singular values, of lorenz via accumulated SVs and Qr decomp of the Jacobian.
         Jacobian is found every timestep and singular values are added to the list. Q is updated by the Jacobian via rk4 every step and
         is renormalised every so often via QR decomposition. Then, at the end, they are logged and averaged to find Lyapunov spectrum.
 
@@ -301,7 +306,7 @@ class LorenzGenerator():
         x_ = []
 
         for i in range(transient_steps):
-            x, Q = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Q,  dt=dt)
+            x, Q = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Q)
 
             if (i+1) % QR_steps == 0:
                 Q, R = np.linalg.qr(Q)
@@ -309,8 +314,8 @@ class LorenzGenerator():
 
         for i in range(trajectory_steps):
             Phi = np.eye(3)
-            _, Phi = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Phi,  dt=dt)
-            x, Q = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Q,  dt=dt)
+            _, Phi = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Phi)
+            x, Q = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Q)
             x_.append(x)
             
 
@@ -340,15 +345,50 @@ class LorenzGenerator():
             'r_vectors':r_vectors,
             'x_': x_
         }
-    
+
+    def plot_svs(self,
+                 x = np.ndarray,
+                 transient_steps: int = 5000,
+                 trajectory_steps: int = 1000,
+                 ):
+
+        singular_values= []
+        for _ in range(transient_steps):
+            x, _ = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x)
+
+                
+
+        for _ in range(trajectory_steps):
+            Phi = np.eye(3)
+            x, Phi = self.rk4_matrix_and_x(f = self.calc_derivatives, J = self.J, x = x, U = Phi)
+            
+            U, S, Vt = np.linalg.svd(Phi)
+
+            singular_values.append(S)
+        svs = np.asarray(singular_values)
+
+        fig, ax = plt.subplots(1,1, figsize=(12,4))
+
+        ax.plot(svs[:1000,0], label = 'SV1')
+        ax.plot(svs[:1000,1], label = 'SV2')
+        ax.plot(svs[:1000,2], label = 'SV3')
+
+
+        ax.set_title('Singular Values of True Lorenz')
+        ax.set_xlabel(f"Timestep, $\Delta t = 0.01$")
+        ax.set_ylabel(f"Singular Value")
+        ax.legend()
+        plt.show()
+
+
+            
 
         
 if __name__ == '__main__':
     
-    generator = LorenzGenerator()
+    generator = lorenz_63()
 
-    traj = generator.generate_trajectory(x0=np.array([2,4,9]), n_steps=100000)
-
+    generator.plot_svs(x=np.array([1,1,1]))
     
 
     

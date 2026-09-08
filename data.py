@@ -1,10 +1,10 @@
 import pandas as pd
 import torch
 import numpy as np
-from lorenz_63 import LorenzGenerator
+from lorenz_63 import lorenz_63
 from lorenz_96 import lorenz_96
 import random
-from typing import Optional
+from typing import Optional, Tuple
 
 
 #REPRODUCABILITY
@@ -12,7 +12,7 @@ from typing import Optional
 class traj_Dataset(torch.utils.data.Dataset):
 
     '''
-    Dataset containing pairs of (1,3) points and their following output. All z-score normalised accoridng to input mean, std , or if empty, clauclated from inputs.
+    Dataset containing pairs of (1,3) points and their following output, of L63. All z-score normalised accoridng to input mean, std , or if empty, clauclated from inputs.
     One can also load a presvaed dataset.
     
     '''
@@ -30,7 +30,11 @@ class traj_Dataset(torch.utils.data.Dataset):
             n_trajectories (int): The amount of initnial starting points of trajectories to use.
             n_samples_per_traj (int): As it sounds.
             n_transient (int): Number of trajectories to throw away at the start to ensure samples are on the attractor.
-
+            dt (float): Timestep
+            mean (torch.Tensor): Mean value of each dim of the training set. Calculated if not inputted.
+            std (torch.Tensor): Std value of each dim of the training set. Calculated if not inputted.
+            preloaded (Optional[dict]): Can preload an already saved dataset and instantiate it. Dict contains [samples, targets, mean, std]
+            RANDOM_SEED (int): Random seed.
         '''
 
         
@@ -38,7 +42,7 @@ class traj_Dataset(torch.utils.data.Dataset):
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
         torch.use_deterministic_algorithms(True)
-        self.traj_generator = LorenzGenerator()
+        self.traj_generator = lorenz_63()
 
         self.n_trajectories = n_trajectories
         self.n_samples_per_traj = n_samples_per_traj
@@ -66,7 +70,8 @@ class traj_Dataset(torch.utils.data.Dataset):
 
         print(f"Initialised Dataset:\n{self.n_trajectories} Trajectories \n{self.n_samples_per_traj} Samples per Trajectory\n{self.n_transient} Transient steps\nh = {self.dt}")
 
-    def generate_samples(self):
+    def generate_samples(self)-> Tuple[np.ndarray, np.ndarray]:
+
         samples = np.empty((0,3))
         targets = np.empty((0,3))
 
@@ -125,7 +130,7 @@ class traj_Dataset(torch.utils.data.Dataset):
 class lorenz_96_Dataset(torch.utils.data.Dataset):
 
     '''
-    Dataset containing pairs of (1,3) points and their following output. All z-score normalised accoridng to input mean, std , or if empty, clauclated from inputs.
+    Dataset containing pairs of (1,N) points and their following output, L96. All z-score normalised accoridng to input mean, std , or if empty, clauclated from inputs.
     One can also load a presvaed dataset.
     
     '''
@@ -142,10 +147,16 @@ class lorenz_96_Dataset(torch.utils.data.Dataset):
                  RANDOM_SEED = random.randint(1,100)):
         '''
         Inputs:
+            N (int): Number of dims.
+            F (float): Constant of equations.
             n_trajectories (int): The amount of initnial starting points of trajectories to use.
             n_samples_per_traj (int): As it sounds.
             n_transient (int): Number of trajectories to throw away at the start to ensure samples are on the attractor.
-
+            dt (float): Timestep length.
+            mean (torch.Tensor): Mean value of each dim of the training set. Calculated if not inputted.
+            std (torch.Tensor): Std value of each dim of the training set. Calculated if not inputted.
+            preloaded (Optional[dict]): Can preload an already saved dataset and instantiate it. Dict contains [samples, targets, mean, std]
+            RANDOM_SEED (int): Random seed.
         '''
 
         
@@ -182,7 +193,7 @@ class lorenz_96_Dataset(torch.utils.data.Dataset):
 
         print(f"Initialised Dataset:\n{self.n_trajectories} Trajectories \n{self.n_samples_per_traj} Samples per Trajectory\n{self.n_transient} Transient steps\nh = {self.dt}")
 
-    def generate_samples(self):
+    def generate_samples(self) -> Tuple[np.ndarray, np.ndarray]:
         samples = np.empty((0,self.N))
         targets = np.empty((0,self.N))
 

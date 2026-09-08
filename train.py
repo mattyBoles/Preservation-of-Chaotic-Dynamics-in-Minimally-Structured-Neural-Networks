@@ -4,39 +4,39 @@ import pandas as pd
 import random
 import os
 import json
-from datetime import datetime, timezone
 from pathlib import Path
-import copy
 
 from data import traj_Dataset, lorenz_96_Dataset
-from models import tanh_model, avg_euclidean_error, parameterised_beta_model, WeightedMSELoss
-from engine import train, test
-from model_analysis import analysis
+from models import Lorenz_model, avg_euclidean_error, WeightedMSELoss
+from engine import train, evaluate
 from plot import plot_model, plot_loss, plot_96
 
 
 
 def train_model(config:dict) -> tuple[str, float, float, float]:
     '''
-    Trains a model from scratch and does some quick lyapunov analysis on it. Also creates a best_model (based on lowest val loss) and last_model .pth to be loaded,
+    Trains a model from scratch. Also creates a best_model (based on lowest val loss) and last_model .pth to be loaded,
     stats.pt, which contain the mean and std of the train set for inferance, _MODEL_TRAJ, showing a typical trajectory,
-    and a trin json, shwoing loss, Avg EUclidean distance, hyperparameters, and Lyapunov spectrum.
+    and a trin json, shwoing loss, Avg Euclidean distance, hyperparameters, and Lyapunov spectrum.
 
     Inputs:
         config (dict):
             'MODEL_NAME' (str): The name the model will be saved to.
+            'N' (int): dimensions of L96,
+            'F' (float): F in L96,
             'NUM_EPOCHS (int): The number of epochs to run for.
             'hidden_size' (int): The width of the hidden layer.
             'n_traj' (int): The numebr of different trajectories to train on.
             'traj_length' (int): The number of consecutive points on each trajectory to train on.
-            'activation' (str): The activation to train on, namely 'relu', 'tanh', 'arctan', or 'softplus'.
+            'activation' (torch.nn.Module, Callable): The activation to train on, e.g. torch.nn.Softplus(beta=0.5).
             'beta' (float): The beta parameter in softplus.
-            'random_seed' (int): The random seed to use for data geenration.
+            'random_seed' (int): The random seed to use for data generation.
+            'mode' (int): 63 or 96, only necessary for datasets and plotting.
 
     Returns:
         dict: A dictionary containing:
-            "MODEL_NAME", "NUM_EPOCHS", "NUM_TRAJ", "TRAJ_LENGTH", "ACTIVATION", "HIDDEN_SIZE", "TRAIN_LOSS", "TRAIN_AVERAGE_EUCLIDEAN_DISTANCE", "VAL_LOSS", 
-            "VAL_AVERAGE_EUCLIDEAN_DISTANCE", "TEST_LOSS", "TEST_AVERAGE_EUCLIDEAN_DISTANCE", "Lyapunov1", "Lyapunov2", "Lyapunov3",
+            "MODEL_NAME", "NUM_EPOCHS", "NUM_TRAJ", "BETA", "TRAJ_LENGTH", "ACTIVATION", "HIDDEN_SIZE", "TRAIN_LOSS", "TRAIN_AVERAGE_EUCLIDEAN_DISTANCE", "VAL_LOSS", 
+            "VAL_AVERAGE_EUCLIDEAN_DISTANCE", "TEST_LOSS", "TEST_AVERAGE_EUCLIDEAN_DISTANCE",
 
     '''
     device = 'cuda:0' if torch.cuda.is_available() == True else 'cpu'
@@ -50,10 +50,9 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     np.random.seed(RANDOM_SEED)
     torch.use_deterministic_algorithms(True)
 
-    #MODEL_NAME = str(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")) + '_6_width_model'
     MODEL_NAME = config['MODEL_NAME']
 
-    output_dir = f'./mega_experiment2'
+    output_dir = f'./betas'
     os.makedirs(output_dir, exist_ok=True)
 
     n_trajectories = config['n_traj']
@@ -62,9 +61,14 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     dt = 0.01
 
 
-    train_set = lorenz_96_Dataset(N=8,
-                                  F=8,
-                                  n_trajectories=n_trajectories,
+    if config['mode'] == 63:
+        dataset_generator = traj_Dataset
+    elif config['mode'] == 96:
+        dataset_generator = lorenz_96_Dataset
+    else:
+        raise ValueError("Invalid Mode Selected: Use 63 or 96")
+
+    train_set = dataset_generator(n_trajectories=n_trajectories,
                                   n_samples_per_traj=n_samples_per_traj,
                                   n_transient=n_transient,
                                   dt=dt,
@@ -78,9 +82,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
 
 
 
-    val_set = lorenz_96_Dataset(N=8,
-                                F=8,
-                                n_trajectories=max(int(n_trajectories/8),4),
+    val_set = dataset_generator(n_trajectories=max(int(n_trajectories/8),4),
                                 n_samples_per_traj=n_samples_per_traj,
                                 n_transient=n_transient,
                                 dt=dt,
@@ -88,9 +90,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
                                 std = std,
                                 RANDOM_SEED = RANDOM_SEED*10)
     
-    test_set = lorenz_96_Dataset(N=8,
-                                 F=8,
-                                 n_trajectories=max(int(n_trajectories/8),4),
+    test_set = dataset_generator(n_trajectories=max(int(n_trajectories/8),4),
                                  n_samples_per_traj=n_samples_per_traj,
                                  n_transient=n_transient,
                                  dt=dt,
@@ -99,7 +99,6 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
                                  RANDOM_SEED = RANDOM_SEED*100)
 
 
-    #BATCH_SIZE = 64 for lbfgs, use full set
     lr = 1.0
     NUM_EPOCHS = config['NUM_EPOCHS']
 
@@ -108,9 +107,7 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
     val_loader = torch.utils.data.DataLoader(val_set, batch_size = len(val_set), shuffle=False)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size = len(test_set), shuffle=False)
 
-    model = tanh_model(config['hidden_size'], config['activation'], input_size = 8, RANDOM_SEED=RANDOM_SEED).to(device)
-
-    start_model = copy.deepcopy(model)
+    model = Lorenz_model(config['hidden_size'], config['activation'], input_size = config['N'], RANDOM_SEED=RANDOM_SEED).to(device)
 
     loss_fn = WeightedMSELoss(std=std)
     optimiser = torch.optim.LBFGS(
@@ -127,40 +124,40 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
                                 std = std)
 
     train_results = train(model = model,
-                        train_loader = train_loader,
-                        val_loader = val_loader,
-                        loss_fn = loss_fn,
-                        optimiser = optimiser,
-                        err_fn = err_fn,
-                        NUM_EPOCHS = NUM_EPOCHS,
-                        device = device)
+                          train_loader = train_loader,
+                          val_loader = val_loader,
+                          loss_fn = loss_fn,
+                          optimiser = optimiser,
+                          err_fn = err_fn,
+                          NUM_EPOCHS = NUM_EPOCHS,
+                          device = device)
     
-
-    torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_last_epoch.pth')
 
     best_val_loss = train_results['val_loss'].index(min(train_results['val_loss']))
     model.load_state_dict(train_results['model_statedict'][best_val_loss])
     torch.save(model.state_dict(), f'{output_dir}/{MODEL_NAME}_best_epoch.pth')
 
 
-    trn_loss, trn_avg_err = test(model = model,
-                            dataloader = train_loader,
-                            loss_fn = loss_fn,
-                            err_fn = err_fn,
-                            std=std,
-                            device = device)
-    val_loss, val_avg_err = test(model = model,
-                            dataloader = val_loader,
-                            loss_fn = loss_fn,
-                            err_fn = err_fn,
-                            std=std,
-                            device = device)
-    test_loss, test_avg_err = test(model = model,
-                                dataloader = test_loader,
-                                loss_fn = loss_fn,
-                                err_fn = err_fn,
-                                std=std,
-                                device = device)
+    trn_loss, trn_avg_err = evaluate(model = model,
+                                 dataloader = train_loader,
+                                 loss_fn = loss_fn,
+                                 err_fn = err_fn,
+                                 std=std,
+                                 device = device)
+    
+    val_loss, val_avg_err = evaluate(model = model,
+                                 dataloader = val_loader,
+                                 loss_fn = loss_fn,
+                                 err_fn = err_fn,
+                                 std=std,
+                                 device = device)
+    
+    test_loss, test_avg_err = evaluate(model = model,
+                                   dataloader = test_loader,
+                                   loss_fn = loss_fn,
+                                   err_fn = err_fn,
+                                   std=std,
+                                   device = device)
     
 
 
@@ -190,7 +187,6 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         "MODEL_NAME":MODEL_NAME,
         "NUM_EPOCHS": config['NUM_EPOCHS'],
         "N": config["N"],
-        "F": config["F"],
         "NUM_TRAJ": config['n_traj'],
         "TRAJ_LENGTH": config['traj_length'],
         "ACTIVATION": str(config['activation']),
@@ -207,39 +203,31 @@ def train_model(config:dict) -> tuple[str, float, float, float]:
         json.dump(output_dict, f, indent=2, default=str)
     
 
-    # ly1, ly2, ly3 = [],[],[]
-    # for _ in range(20):
-    #     l1, l2, l3, _ = analysis(MODEL_NAME=MODEL_NAME)
-    #     ly1.append(l1)
-    #     ly2.append(l2)
-    #     ly3.append(l3)
-    
-    # l1 = np.mean(np.asarray(ly1))
-    # l2 = np.mean(np.asarray(ly2))
-    # l3 = np.mean(np.asarray(ly3))
+
+    if config["mode"] == 63:
+        plot_model(model = model,
+                   x0 = np.array([1,1,25]),
+                   n_steps = 10000,
+                   mean = mean,
+                   std = std,
+                   output_dir=output_dir,
+                   MODEL_NAME=MODEL_NAME)
+
+    elif config["mode"] == 96:
+        plot_96(model = model,
+                x0 = np.array([8.01, 8, 8, 8, 8, 8, 8, 8]),
+                n_transient=5000,
+                n_steps = 1000,
+                mean = mean,
+                std = std,
+                output_dir=output_dir,
+                MODEL_NAME=MODEL_NAME)
+    else:
+        raise ValueError("Invalid Mode Selected: Use 63 or 96")
 
 
-    # output_dict.update({
-    #         "Lyapunov1": l1,
-    #         "Lyapunov2": l2,
-    #         "Lyapunov3": l3,
-    #     })
-
-    # with open(Path(output_dir, f"{MODEL_NAME}_train.json"), "w") as f:
-    #         json.dump(output_dict, f, indent=2, default=str)
-
-
-    # plot_96(model = model,
-    #         x0 = np.array([8.01, 8, 8, 8, 8, 8, 8, 8]),
-    #         n_transient=5000,
-    #         n_steps = 1000,
-    #         mean = mean,
-    #         std = std,
-    #         output_dir=output_dir,
-    #         MODEL_NAME=MODEL_NAME)
-
-    # plot_loss(trn_results = train_results,
-    #           output_dir=output_dir)
+    plot_loss(trn_results = train_results,
+              output_dir=output_dir)
     
 
     return output_dict
